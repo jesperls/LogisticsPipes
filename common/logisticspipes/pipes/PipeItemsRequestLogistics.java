@@ -100,7 +100,7 @@ public class PipeItemsRequestLogistics extends CoreRoutedPipe implements IReques
 		if (itemId == null) {
 			throw new Exception("Invalid ItemIdentifier");
 		}
-		ItemIdentifier itemIdentifier = ItemIdentifier.get(Item.getItemById((int)Math.round(itemId)), 0, null);
+		ItemIdentifier itemIdentifier = ItemIdentifier.get(Item.getItemById(itemId.intValue()), 0, null);
 		ItemIdentifierStack itemStack = new ItemIdentifierStack(itemIdentifier, amount.intValue());
 		return RequestHandler.computerRequest(itemStack, this, forceCrafting);
 	}
