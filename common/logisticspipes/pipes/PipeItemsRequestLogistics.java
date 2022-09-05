@@ -85,34 +85,24 @@ public class PipeItemsRequestLogistics extends CoreRoutedPipe implements IReques
 		return ItemSendMode.Normal;
 	}
 
-	@CCCommand(description = "Requests the given ItemIdentifierStack")
+	@CCCommand(description = "Requests the given ItemID with the given amount")
 	@CCQueued
-	public Object[] makeRequest(ItemIdentifierStack stack) throws Exception {
-		return makeRequest(stack.getItem(), Double.valueOf(stack.getStackSize()), false);
+	public Object[] makeRequest(Double itemId, Double amount) throws Exception {
+		return makeRequest(itemId, amount, false);
 	}
 
-	@CCCommand(description = "Requests the given ItemIdentifierStack")
+	@CCCommand(description = "Requests the given ItemID with the given amount")
 	@CCQueued
-	public Object[] makeRequest(ItemIdentifierStack stack, Boolean forceCrafting) throws Exception {
-		return makeRequest(stack.getItem(), Double.valueOf(stack.getStackSize()), forceCrafting);
-	}
-
-	@CCCommand(description = "Requests the given ItemIdentifier with the given amount")
-	@CCQueued
-	public Object[] makeRequest(ItemIdentifier item, Double amount) throws Exception {
-		return makeRequest(item, amount, false);
-	}
-
-	@CCCommand(description = "Requests the given ItemIdentifier with the given amount")
-	@CCQueued
-	public Object[] makeRequest(ItemIdentifier item, Double amount, Boolean forceCrafting) throws Exception {
+	public Object[] makeRequest(Double itemId, Double amount, Boolean forceCrafting) throws Exception {
 		if (forceCrafting == null) {
 			forceCrafting = false;
 		}
-		if (item == null) {
+		if (itemId == null) {
 			throw new Exception("Invalid ItemIdentifier");
 		}
-		return RequestHandler.computerRequest(item.makeStack((int) Math.floor(amount)), this, forceCrafting);
+		ItemIdentifier itemIdentifier = ItemIdentifier.get(Item.getItemById((int)Math.round(itemId)), 0, null);
+		ItemIdentifierStack itemStack = new ItemIdentifierStack(itemIdentifier, amount.intValue());
+		return RequestHandler.computerRequest(itemStack, this, forceCrafting);
 	}
 
 	@CCCommand(description = "Asks for all available ItemIdentifier inside the Logistics Network")

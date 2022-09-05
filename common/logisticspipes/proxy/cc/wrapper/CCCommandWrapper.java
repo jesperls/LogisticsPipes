@@ -66,14 +66,22 @@ public class CCCommandWrapper implements ILuaObject {
 		String name = info.commandMap.get(methodId);
 		Method match = null;
 		for (Method method : info.commands.values()) {
-			if (!method.getName().equalsIgnoreCase(name)) {
-				continue;
+			if (method.getName().equals(name)) {
+				if (method.getParameterTypes().length == arguments.length) {
+					boolean matchFound = true;
+					for (int i = 0; i < arguments.length; i++) {
+						if (method.getParameterTypes()[i].isInstance(arguments[i])) {
+							continue;
+						}
+						matchFound = false;
+						break;
+					}
+					if (matchFound) {
+						match = method;
+						break;
+					}
+				}
 			}
-			if (!argumentsMatch(method, arguments)) {
-				continue;
-			}
-			match = method;
-			break;
 		}
 
 		if (match == null) {
@@ -320,21 +328,6 @@ public class CCCommandWrapper implements ILuaObject {
 		help.append("Description: \n");
 		help.append(method.getAnnotation(CCCommand.class).description());
 		return new Object[] { help.toString() };
-	}
-
-	private boolean argumentsMatch(Method method, Object[] arguments) {
-		int i = 0;
-		for (Class<?> args : method.getParameterTypes()) {
-			if (arguments.length <= i) {
-				return false;
-			}
-			if (!args.isAssignableFrom(arguments[i].getClass())) {
-				return false;
-			}
-			//if(!arguments[i].getClass().equals(args)) return false;
-			i++;
-		}
-		return true;
 	}
 
 	public String getType() {

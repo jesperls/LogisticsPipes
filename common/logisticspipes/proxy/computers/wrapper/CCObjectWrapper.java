@@ -149,11 +149,6 @@ public class CCObjectWrapper {
 						if (!method.isAnnotationPresent(CCCommand.class)) {
 							continue;
 						}
-						for (Class<?> param : method.getParameterTypes()) {
-							if (param.isPrimitive()) {
-								throw new InternalError("Internal Excption (Code: 2)");
-							}
-						}
 						info.commandMap.put(i, method.getName());
 						info.commands.put(i, method);
 						if (info.commandTypes.containsKey(method.getName())) {
