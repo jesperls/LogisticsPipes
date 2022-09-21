@@ -29,12 +29,14 @@ import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.EnumFacing;
 import net.minecraft.util.NonNullList;
+import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.text.TextComponentTranslation;
 
 import net.minecraftforge.fml.client.FMLClientHandler;
 
 import lombok.Getter;
 
+import logisticspipes.LPItems;
 import logisticspipes.LogisticsPipes;
 import logisticspipes.config.Configs;
 import logisticspipes.gui.GuiChassisPipe;
@@ -102,6 +104,7 @@ import network.rs485.logisticspipes.connection.NoAdjacent;
 import network.rs485.logisticspipes.connection.SingleAdjacent;
 import network.rs485.logisticspipes.module.PipeServiceProviderUtilKt;
 import network.rs485.logisticspipes.pipes.IChassisPipe;
+import network.rs485.logisticspipes.property.SlottedModule;
 
 @CCType(name = "LogisticsChassiePipe")
 public abstract class PipeLogisticsChassis extends CoreRoutedPipe
@@ -235,9 +238,32 @@ public abstract class PipeLogisticsChassis extends CoreRoutedPipe
 		}
 	}
 
+	private void updateModuleInventory() {
+		_module.slottedModules().forEach(slottedModule -> {
+			if (slottedModule.isEmpty()) {
+				_moduleInventory.clearInventorySlotContents(slottedModule.getSlot());
+				return;
+			}
+			final LogisticsModule module = Objects.requireNonNull(slottedModule.getModule());
+			final ItemIdentifierStack idStack = _moduleInventory.getIDStackInSlot(slottedModule.getSlot());
+			ItemStack moduleStack;
+			if (idStack != null) {
+				moduleStack = idStack.getItem().makeNormalStack(1);
+			} else {
+				ResourceLocation resourceLocation = LPItems.modules.get(module.getLPName());
+				Item item = Item.REGISTRY.getObject(resourceLocation);
+				if (item == null) return;
+				moduleStack = new ItemStack(item);
+			}
+			ItemModuleInformationManager.saveInformation(moduleStack, module);
+			_moduleInventory.setInventorySlotContents(slottedModule.getSlot(), moduleStack);
+		});
+	}
+
 	@Override
 	@Nonnull
 	public IInventory getModuleInventory() {
+		updateModuleInventory();
 		return _moduleInventory;
 	}
 
@@ -271,25 +297,44 @@ public abstract class PipeLogisticsChassis extends CoreRoutedPipe
 	}
 
 	@Override
-	public void readFromNBT(NBTTagCompound nbttagcompound) {
-		try {
-			super.readFromNBT(nbttagcompound);
-			_moduleInventory.readFromNBT(nbttagcompound, "chassi");
-			InventoryChanged(_moduleInventory);
-			_module.readFromNBT(nbttagcompound);
-			int tmp = nbttagcompound.getInteger("Orientation");
-			if (tmp != -1) {
-				setPointedOrientation(EnumFacingUtil.getOrientation(tmp % 6));
-			}
-			for (int i = 0; i < getChassisSize(); i++) {
-				if (i >= slotUpgradeManagers.size()) {
-					addModuleUpgradeManager();
-				}
-				slotUpgradeManagers.get(i).readFromNBT(nbttagcompound, Integer.toString(i));
-			}
-		} catch (Exception e) {
-			e.printStackTrace();
+	public void readFromNBT(@Nonnull NBTTagCompound tag) {
+		super.readFromNBT(tag);
+		_moduleInventory.readFromNBT(tag, "chassi");
+		_module.readFromNBT(tag);
+		int tmp = tag.getInteger("Orientation");
+		if (tmp != -1) {
+			setPointedOrientation(EnumFacingUtil.getOrientation(tmp % 6));
 		}
+		for (int i = 0; i < getChassisSize(); i++) {
+			// TODO: remove after 1.12.2 update, backwards compatibility
+			final ItemIdentifierStack idStack = _moduleInventory.getIDStackInSlot(i);
+			if (idStack != null && !_module.hasModule(i)) {
+				final Item stackItem = idStack.getItem().item;
+				if (stackItem instanceof ItemModule) {
+					final ItemModule moduleItem = (ItemModule) stackItem;
+					LogisticsModule module = moduleItem.getModule(null, this, this);
+					if (module != null) {
+						_module.installModule(i, module);
+					}
+				}
+			}
+			// remove end
+
+			if (i >= slotUpgradeManagers.size()) {
+				addModuleUpgradeManager();
+			}
+			slotUpgradeManagers.get(i).readFromNBT(tag, Integer.toString(i));
+		}
+
+		// register slotted modules
+		_module.slottedModules()
+				.filter(slottedModule -> !slottedModule.isEmpty())
+				.forEach(slottedModule -> {
+					LogisticsModule logisticsModule = Objects.requireNonNull(slottedModule.getModule());
+					// FIXME: rely on getModuleForItem instead
+					logisticsModule.registerHandler(this, this);
+					slottedModule.registerPosition();
+				});
 	}
 
 	private void addModuleUpgradeManager() {
@@ -297,13 +342,14 @@ public abstract class PipeLogisticsChassis extends CoreRoutedPipe
 	}
 
 	@Override
-	public void writeToNBT(NBTTagCompound nbttagcompound) {
-		super.writeToNBT(nbttagcompound);
-		_moduleInventory.writeToNBT(nbttagcompound, "chassi");
-		_module.writeToNBT(nbttagcompound);
-		nbttagcompound.setInteger("Orientation", pointedAdjacent == null ? -1 : pointedAdjacent.getDir().ordinal());
+	public void writeToNBT(@Nonnull NBTTagCompound tag) {
+		super.writeToNBT(tag);
+		updateModuleInventory();
+		_moduleInventory.writeToNBT(tag, "chassi");
+		_module.writeToNBT(tag);
+		tag.setInteger("Orientation", pointedAdjacent == null ? -1 : pointedAdjacent.getDir().ordinal());
 		for (int i = 0; i < getChassisSize(); i++) {
-			slotUpgradeManagers.get(i).writeToNBT(nbttagcompound, Integer.toString(i));
+			slotUpgradeManagers.get(i).writeToNBT(tag, Integer.toString(i));
 		}
 	}
 
@@ -318,14 +364,7 @@ public abstract class PipeLogisticsChassis extends CoreRoutedPipe
 					y.onBlockRemoval();
 				}
 			}
-			for (int i = 0; i < _moduleInventory.getSizeInventory(); i++) {
-				ItemIdentifierStack ms = _moduleInventory.getIDStackInSlot(i);
-				if (ms != null) {
-					ItemStack stack = ms.makeNormalStack();
-					ItemModuleInformationManager.saveInformation(stack, getSubModule(i));
-					_moduleInventory.setInventorySlotContents(i, stack);
-				}
-			}
+			updateModuleInventory();
 			_moduleInventory.dropContents(getWorld(), getX(), getY(), getZ());
 
 			for (int i = 0; i < getChassisSize(); i++) {
@@ -402,17 +441,19 @@ public abstract class PipeLogisticsChassis extends CoreRoutedPipe
 				continue;
 			}
 
-			if (stack.getItem() instanceof ItemModule) {
+			final Item stackItem = stack.getItem();
+			if (stackItem instanceof ItemModule) {
+				final ItemModule moduleItem = (ItemModule) stackItem;
 				LogisticsModule current = _module.getModule(i);
-				LogisticsModule next = ((ItemModule) stack.getItem()).getModuleForItem(stack, _module.getModule(i), this, this);
-				Objects.requireNonNull(next, "getModuleForItem returned null for " + stack.toString());
+				LogisticsModule next = moduleItem.getModuleForItem(stack, current, this, this);
+				Objects.requireNonNull(next, "getModuleForItem returned null for " + stack);
 				next.registerPosition(ModulePositionType.SLOT, i);
-				next.registerCCEventQueuer(this);
 				if (current != next) {
 					_module.installModule(i, next);
 					if (!MainProxy.isClient(getWorld())) {
 						ItemModuleInformationManager.readInformation(stack, next);
 					}
+					next.finishInit();
 				}
 				inventory.setInventorySlotContents(i, stack);
 			}
@@ -426,7 +467,10 @@ public abstract class PipeLogisticsChassis extends CoreRoutedPipe
 		}
 		if (MainProxy.isServer(getWorld())) {
 			if (!localModeWatchers.isEmpty()) {
-				MainProxy.sendToPlayerList(PacketHandler.getPacket(ChassisPipeModuleContent.class).setIdentList(ItemIdentifierStack.getListFromInventory(_moduleInventory)).setPosX(getX()).setPosY(getY()).setPosZ(getZ()), localModeWatchers);
+				MainProxy.sendToPlayerList(PacketHandler.getPacket(ChassisPipeModuleContent.class)
+						.setIdentList(ItemIdentifierStack.getListFromInventory(_moduleInventory))
+						.setPosX(getX()).setPosY(getY()).setPosZ(getZ()),
+						localModeWatchers);
 			}
 		}
 	}
@@ -442,7 +486,7 @@ public abstract class PipeLogisticsChassis extends CoreRoutedPipe
 	}
 
 	@Override
-	public final LogisticsModule getLogisticsModule() {
+	public final @Nullable LogisticsModule getLogisticsModule() {
 		return _module;
 	}
 
@@ -456,6 +500,7 @@ public abstract class PipeLogisticsChassis extends CoreRoutedPipe
 	}
 
 	private boolean tryInsertingModule(EntityPlayer entityplayer) {
+		updateModuleInventory();
 		for (int i = 0; i < _moduleInventory.getSizeInventory(); i++) {
 			if (_moduleInventory.getIDStackInSlot(i) == null) {
 				_moduleInventory.setInventorySlotContents(i, entityplayer.getItemStackFromSlot(EntityEquipmentSlot.MAINHAND).splitStack(1));
@@ -575,6 +620,7 @@ public abstract class PipeLogisticsChassis extends CoreRoutedPipe
 	@Override
 	public void playerStartWatching(EntityPlayer player, int mode) {
 		if (mode == 1) {
+			updateModuleInventory();
 			localModeWatchers.add(player);
 			MainProxy.sendPacketToPlayer(PacketHandler.getPacket(ChassisPipeModuleContent.class).setIdentList(ItemIdentifierStack.getListFromInventory(_moduleInventory)).setPosX(getX()).setPosY(getY()).setPosZ(getZ()), player);
 			MainProxy.sendPacketToPlayer(PacketHandler.getPacket(SendQueueContent.class).setIdentList(ItemIdentifierStack.getListSendQueue(_sendQueue)).setPosX(getX()).setPosY(getY()).setPosZ(getZ()), player);
@@ -587,6 +633,12 @@ public abstract class PipeLogisticsChassis extends CoreRoutedPipe
 	public void playerStopWatching(EntityPlayer player, int mode) {
 		super.playerStopWatching(player, mode);
 		localModeWatchers.remove(player);
+	}
+
+	@Override
+	public void finishInit() {
+		super.finishInit();
+		_module.finishInit();
 	}
 
 	public void handleModuleItemIdentifierList(Collection<ItemIdentifierStack> _allItems) {
@@ -622,12 +674,7 @@ public abstract class PipeLogisticsChassis extends CoreRoutedPipe
 	@Override
 	public void setTile(TileEntity tile) {
 		super.setTile(tile);
-		for (int i = 0; i < _moduleInventory.getSizeInventory(); i++) {
-			LogisticsModule current = _module.getModule(i);
-			if (current != null) {
-				current.registerPosition(ModulePositionType.SLOT, i);
-			}
-		}
+		_module.slottedModules().forEach(SlottedModule::registerPosition);
 	}
 
 	@Override

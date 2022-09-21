@@ -70,7 +70,13 @@ public class ChassisModule extends LogisticsModule implements Gui {
 	}
 
 	public Stream<LogisticsModule> getModules() {
-		return modules.stream().map(SlottedModule::getModule);
+		return modules.stream()
+				.filter(slottedModule -> !slottedModule.isEmpty())
+				.map(SlottedModule::getModule);
+	}
+
+	public Stream<SlottedModule> slottedModules() {
+		return modules.stream();
 	}
 
 	@Override
@@ -143,6 +149,12 @@ public class ChassisModule extends LogisticsModule implements Gui {
 			}
 			module.tick();
 		}
+	}
+
+	@Override
+	public void finishInit() {
+		super.finishInit();
+		getModules().forEach(LogisticsModule::finishInit);
 	}
 
 	@Override

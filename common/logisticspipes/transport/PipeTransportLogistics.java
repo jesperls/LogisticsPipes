@@ -567,9 +567,8 @@ public class PipeTransportLogistics {
 	private boolean insertArrivingItem(LPTravelingItemServer arrivingItem, TileEntity tile, EnumFacing insertion) {
 		ItemStack added = InventoryHelper.getTransactorFor(tile, insertion).add(arrivingItem.getItemIdentifierStack().makeNormalStack(), insertion, true);
 
-		arrivingItem.getItemIdentifierStack().lowerStackSize(added.getCount());
-
-		if (added.getCount() > 0) {
+		if (!added.isEmpty()) {
+			arrivingItem.getItemIdentifierStack().lowerStackSize(added.getCount());
 			arrivingItem.setBufferCounter(0);
 		}
 
@@ -579,7 +578,12 @@ public class PipeTransportLogistics {
 			// we have some leftovers, we are splitting the stack, we need to clone the info
 			info = info.clone();
 		}
-		info.getItem().setStackSize(added.getCount());
+		if(added.isEmpty()){
+			info.getItem().setStackSize(0);
+		} else {
+			info.getItem().setStackSize(added.getCount());
+		}
+
 		inventorySystemConnectorHook(info, tile);
 
 		// back to normal code, break if we've inserted everything, all items disposed of.
@@ -619,8 +623,7 @@ public class PipeTransportLogistics {
 					return !((tile instanceof LogisticsPowerJunctionTileEntity || tile instanceof ISubSystemPowerProvider) && ori.getAxis() == EnumFacing.Axis.Y);
 				}
 			}
-			if (SimpleServiceLocator.betterStorageProxy.isBetterStorageCrate(tile) || SimpleServiceLocator.factorizationProxy.isBarral(tile)
-					|| SimpleServiceLocator.enderIOProxy.isItemConduit(tile, side.getOpposite())
+			if (SimpleServiceLocator.enderIOProxy.isItemConduit(tile, side.getOpposite())
 					|| (getPipe().getUpgradeManager().hasRFPowerSupplierUpgrade() && SimpleServiceLocator.powerProxy.isEnergyReceiver(tile, side.getOpposite())) || (getPipe().getUpgradeManager().getIC2PowerLevel() > 0 && SimpleServiceLocator.IC2Proxy.isEnergySink(tile))) {
 				return true;
 			}

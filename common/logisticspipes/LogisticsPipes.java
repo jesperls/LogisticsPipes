@@ -145,6 +145,7 @@ import logisticspipes.pipes.basic.LogisticsBlockGenericPipe;
 import logisticspipes.pipes.basic.LogisticsBlockGenericSubMultiBlock;
 import logisticspipes.pipes.basic.LogisticsTileGenericPipe;
 import logisticspipes.pipes.basic.LogisticsTileGenericSubMultiBlock;
+import logisticspipes.pipes.basic.fluid.FluidRoutedPipe;
 import logisticspipes.pipes.tubes.HSTubeCurve;
 import logisticspipes.pipes.tubes.HSTubeGain;
 import logisticspipes.pipes.tubes.HSTubeLine;
@@ -197,13 +198,12 @@ import logisticspipes.utils.FluidIdentifier;
 import logisticspipes.utils.InventoryUtilFactory;
 import logisticspipes.utils.RoutedItemHelper;
 import logisticspipes.utils.StaticResolverUtil;
-import logisticspipes.utils.TankUtilFactory;
 import logisticspipes.utils.tuples.Pair;
 import network.rs485.grow.ServerTickDispatcher;
 import network.rs485.logisticspipes.compat.TheOneProbeIntegration;
 import network.rs485.logisticspipes.config.ClientConfiguration;
 import network.rs485.logisticspipes.config.ServerConfigurationManager;
-import network.rs485.logisticspipes.gui.LPFontRenderer;
+import network.rs485.logisticspipes.gui.font.LPFontRenderer;
 import network.rs485.logisticspipes.gui.PropertyUpdaterEventListener;
 import network.rs485.logisticspipes.guidebook.ItemGuideBook;
 
@@ -354,7 +354,6 @@ public class LogisticsPipes {
 		SimpleServiceLocator.setSecurityStationManager(manager);
 		SimpleServiceLocator.setLogisticsManager(new LogisticsManager());
 		SimpleServiceLocator.setInventoryUtilFactory(new InventoryUtilFactory());
-		SimpleServiceLocator.setTankUtilFactory(new TankUtilFactory());
 		SimpleServiceLocator.setSpecialConnectionHandler(new SpecialPipeConnection());
 		SimpleServiceLocator.setSpecialConnectionHandler(new SpecialTileConnection());
 		SimpleServiceLocator.setSpecialTankHandler(new SpecialTankHandler());
@@ -743,15 +742,15 @@ public class LogisticsPipes {
 
 	protected void registerPipe(IForgeRegistry<Item> registry, String name, Function<Item, ? extends CoreUnroutedPipe> constructor) {
 		final ItemLogisticsPipe res = LogisticsBlockGenericPipe.registerPipe(registry, name, constructor);
-		final CoreUnroutedPipe pipe = Objects.requireNonNull(LogisticsBlockGenericPipe.createPipe(res), "created a null pipe from " + res.toString());
+		final CoreUnroutedPipe pipe = Objects.requireNonNull(LogisticsBlockGenericPipe.createPipe(res), "created a null pipe from " + res);
 		if (pipe instanceof CoreRoutedPipe) {
 			postInitRun.add(() -> res.setPipeIconIndex(((CoreRoutedPipe) pipe).getTextureType(null).normal, ((CoreRoutedPipe) pipe).getTextureType(null).newTexture));
 		}
 
 		if (pipe.getClass() != PipeItemsBasicLogistics.class && CoreRoutedPipe.class.isAssignableFrom(pipe.getClass())) {
-			if (pipe.getClass() != PipeFluidBasic.class && PipeFluidBasic.class.isAssignableFrom(pipe.getClass())) {
+			if (pipe.getClass() != PipeFluidBasic.class && FluidRoutedPipe.class.isAssignableFrom(pipe.getClass())) {
 				resetRecipeList.add(() -> new Pair<>(res, LPItems.pipeFluidBasic));
-			} else if (pipe.getClass() != PipeBlockRequestTable.class) {
+			} else if (!pipe.isPipeBlock()) {
 				resetRecipeList.add(() -> new Pair<>(res, LPItems.pipeBasic));
 			}
 		}

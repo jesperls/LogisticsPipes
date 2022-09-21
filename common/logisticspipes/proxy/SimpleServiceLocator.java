@@ -15,13 +15,11 @@ import logisticspipes.interfaces.routing.IChannelManagerProvider;
 import logisticspipes.logistics.ILogisticsFluidManager;
 import logisticspipes.logistics.ILogisticsManager;
 import logisticspipes.proxy.interfaces.IBCProxy;
-import logisticspipes.proxy.interfaces.IBetterStorageProxy;
 import logisticspipes.proxy.interfaces.ICCLProxy;
 import logisticspipes.proxy.interfaces.ICCProxy;
 import logisticspipes.proxy.interfaces.ICraftingRecipeProvider;
 import logisticspipes.proxy.interfaces.IEnderIOProxy;
 import logisticspipes.proxy.interfaces.IEnderStorageProxy;
-import logisticspipes.proxy.interfaces.IFactorizationProxy;
 import logisticspipes.proxy.interfaces.IIC2Proxy;
 import logisticspipes.proxy.interfaces.IIronChestProxy;
 import logisticspipes.proxy.interfaces.INEIProxy;
@@ -40,7 +38,6 @@ import logisticspipes.ticks.ClientPacketBufferHandlerThread;
 import logisticspipes.ticks.ServerPacketBufferHandlerThread;
 import logisticspipes.utils.InventoryUtilFactory;
 import logisticspipes.utils.RoutedItemHelper;
-import logisticspipes.utils.TankUtilFactory;
 import network.rs485.logisticspipes.proxy.mcmp.IMCMPProxy;
 
 public final class SimpleServiceLocator {
@@ -101,12 +98,6 @@ public final class SimpleServiceLocator {
 		SimpleServiceLocator.inventoryUtilFactory = invUtilFactory;
 	}
 
-	public static TankUtilFactory tankUtilFactory;
-
-	public static void setTankUtilFactory(final TankUtilFactory tankUtilFactory) {
-		SimpleServiceLocator.tankUtilFactory = tankUtilFactory;
-	}
-
 	public static LinkedList<ICraftingRecipeProvider> craftingRecipeProviders = new LinkedList<>();
 
 	public static void addCraftingRecipeProvider(ICraftingRecipeProvider provider) {
@@ -131,12 +122,6 @@ public final class SimpleServiceLocator {
 		SimpleServiceLocator.thermalExpansionProxy = proxy;
 	}
 
-	public static IBetterStorageProxy betterStorageProxy;
-
-	public static void setBetterStorageProxy(IBetterStorageProxy proxy) {
-		SimpleServiceLocator.betterStorageProxy = proxy;
-	}
-
 	public static SpecialTankHandler specialTankHandler;
 
 	public static void setSpecialTankHandler(SpecialTankHandler proxy) {
@@ -159,12 +144,6 @@ public final class SimpleServiceLocator {
 
 	public static void setNEIProxy(INEIProxy proxy) {
 		SimpleServiceLocator.neiProxy = proxy;
-	}
-
-	public static IFactorizationProxy factorizationProxy;
-
-	public static void setFactorizationProxy(IFactorizationProxy proxy) {
-		SimpleServiceLocator.factorizationProxy = proxy;
 	}
 
 	public static PipeInformationManager pipeInformationManager;
